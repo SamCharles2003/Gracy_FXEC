@@ -3,41 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gracy</title>
+    <title>Gracy Chatbot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
-        #output {
-            margin-top: 20px;
-            font-size: 20px;
+        .chat-container {
+            width: 300px;
+            height: 500px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+        .chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #e1ffc7;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            align-self: flex-start;
+        }
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ccc;
+        }
+        #start-btn {
+            flex-grow: 1;
+            padding: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        #start-btn:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
 <body>
-    <h1>Gracy</h1>
-    <button id="start-btn">Start Listening</button>
-    <div id="output">Waiting for audio input...</div>
+    <div class="chat-container">
+        <div class="chat-header">Gracy Chatbot</div>
+        <div class="chat-messages" id="output">
+            <div class="message bot-message">Hi! I'm Gracy. Click the button below to start talking.</div>
+        </div>
+        <div class="chat-input">
+            <button id="start-btn">Start Listening</button>
+        </div>
+    </div>
 
     <script>
         const startBtn = document.getElementById('start-btn');
         const outputDiv = document.getElementById('output');
         let recognition;
 
-        // Check if the browser supports the Web Speech API
+        function updateChatMessages(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
+            messageDiv.textContent = text;
+            outputDiv.appendChild(messageDiv);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+
         if (!('webkitSpeechRecognition' in window) || !('speechSynthesis' in window)) {
-            outputDiv.textContent = "Your browser does not support the Web Speech API.";
+            updateChatMessages("Your browser does not support the Web Speech API.");
         } else {
-            // Initialize the speech recognition object
             recognition = new webkitSpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
             recognition.lang = 'en-US';
 
             recognition.onstart = function() {
-                outputDiv.textContent = "Listening...";
+                updateChatMessages("Listening...");
             };
 
             recognition.onresult = function(event) {
@@ -47,26 +113,25 @@
                         finalTranscript += event.results[i][0].transcript;
                     }
                 }
-                outputDiv.textContent = `Google Speech Recognition thinks you said: ${finalTranscript}`;
+                updateChatMessages(finalTranscript, true);
                 sendQueryToGemini(finalTranscript);
             };
 
             recognition.onerror = function(event) {
-                outputDiv.textContent = `Error occurred in recognition: ${event.error}`;
+                updateChatMessages(`Error occurred in recognition: ${event.error}`);
             };
 
             recognition.onend = function() {
-                outputDiv.textContent = "Stopped listening.";
+                updateChatMessages("Stopped listening.");
             };
 
             startBtn.addEventListener('click', function() {
                 recognition.start();
             });
 
-            // Function to send query to Gemini API
             async function sendQueryToGemini(query) {
                 try {
-                    const response = await fetch('https://gracys-generative-model.onrender.com//gemini', {  // Change this URL to your remote server if needed
+                    const response = await fetch('https://gracys-generative-model.onrender.com//gemini', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -74,14 +139,13 @@
                         body: JSON.stringify({ query })
                     });
                     const data = await response.json();
-                    outputDiv.textContent = `Gracy says: ${data.response}`;
+                    updateChatMessages(data.response);
                     speakText(data.response);
                 } catch (error) {
-                    outputDiv.textContent = `Error occurred: ${error.message}`;
+                    updateChatMessages(`Error occurred: ${error.message}`);
                 }
             }
 
-            // Function to perform text-to-speech
             function speakText(text) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'en-US';
@@ -91,7 +155,7 @@
                     console.log('Available voices:', voices);
 
                     const femaleVoice = voices.find(voice => voice.name.includes('Female') || voice.name.includes('female') || voice.gender === 'female');
-                    
+
                     if (femaleVoice) {
                         utterance.voice = femaleVoice;
                         console.log(`Using voice: ${femaleVoice.name}`);
@@ -100,10 +164,10 @@
                     }
 
                     utterance.onstart = function() {
-                        recognition.stop(); // Stop recognition while speaking
+                        recognition.stop();
                     };
                     utterance.onend = function() {
-                        recognition.start(); // Restart recognition after speaking
+                        recognition.start();
                     };
                     speechSynthesis.speak(utterance);
                 };
